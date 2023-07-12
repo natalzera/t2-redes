@@ -1,5 +1,5 @@
 #define LEN_HEADER 3 // SYN | ACK | clientId
-#define LEN_DATA 10
+#define LEN_DATA 15
 
 // estrutura dos segmentos
 typedef struct segment {

@@ -33,6 +33,9 @@ void* connection(void *args) {
         // se solicita fechar conexão
         if (!strcmp(message.data, "quit")) { // fechar conexão
             printf("Conexão encerrada com cliente %d\n", message.clientId);
+            strcpy(message.data, "disconnected");
+            composeSegment(buffer, 0, 0, -1, message.data);
+            write(clientSocket, buffer, sizeof(buffer));
             break;
         }
         // se solicita alguma resposta do servidor
