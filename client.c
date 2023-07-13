@@ -12,6 +12,8 @@
 
 // bibliotecas para a estrutura dos segmentos
 #include "segment.h"
+#include "nick.h"
+extern char nicknames[MAX_USERS_NICK][30];
 #define MAX_CHARS 64000
 
 // endereço IP e porta do servidor para conexão
@@ -30,8 +32,8 @@ void* sendMessage(void *args) {
 
     while (1) {
         // lê a mensagem inteira
-        memset(totalMsg, 0, sizeof(totalMsg));
-        fgets(totalMsg, sizeof(totalMsg), stdin);
+        memset(totalMsg, 0, MAX_CHARS);
+        fgets(totalMsg, MAX_CHARS, stdin);
         totalMsg[strcspn(totalMsg, "\n")] = '\0';
 
         // verifica se precisa dividir em mensagens menores
@@ -54,9 +56,12 @@ void* sendMessage(void *args) {
             break;
         }
     }
+    pthread_exit(NULL);
 }
 
 int main() {
+    setUsersNickDefault();
+
     // cria e configura o socket
     int thisSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (thisSocket < 0) {
@@ -74,7 +79,7 @@ int main() {
     segment_t message;
     while (1) {
         fgets(message.data, sizeof(message.data), stdin);
-        if (!strcmp(message.data, "/connect\n"))
+        if (!strcmp(message.data, "/connect\n") || !strcmp(message.data, "/close\n"))
             break;
 
         printf("Conete-se ao servidor antes.\n");
@@ -86,16 +91,28 @@ int main() {
         printf("Erro ao estabelecer conexão com o servidor.\n");
         return 1;
     }
-    
-    // solicita a conexão lógica e um id de usuário para o servidor
+
+    // envia a mensagem inicial para o servidor
     char buffer[LEN_HEADER + LEN_DATA];
     message.data[strcspn(message.data, "\n")] = '\0';
-    composeSegment(buffer, 0, 0, 0, message.data);
-    write(thisSocket, buffer, sizeof(buffer));
-    memset(buffer, 0, sizeof(buffer));
+    memset(buffer, 0, LEN_HEADER + LEN_DATA);
+    composeSegment(buffer, 0, message.data);
+    write(thisSocket, buffer, LEN_HEADER + LEN_DATA);
+    memset(buffer, 0, LEN_HEADER + LEN_DATA);
+
+    // se solicitou fechamento do servidor, verifica se conseguiu
+    if (!strcmp(message.data, "/close")) {
+        if (read(thisSocket, buffer, LEN_HEADER + LEN_DATA) > 0)
+            printf("Servidor com conexões ativas ainda.\n");
+        else
+            printf("Servidor fechado.\n");
+
+        close(thisSocket);
+        return 0;
+    }
 
     // lê a resposta do servidor com o id de usuário
-    read(thisSocket, buffer, sizeof(buffer));
+    read(thisSocket, buffer, LEN_HEADER + LEN_DATA);
     message = extractSegment(buffer);
     short int userId = message.clientId;
     printf("Conexão estabelecida. Usuário %d\n", userId);
@@ -110,15 +127,22 @@ int main() {
     pthread_create(&threads, NULL, sendMessage, argsMsg);
 
     // enquanto o socket não foi fechado, lê mensagens que o servidor mandou e extrai seus dados
+    char userName[30];
     while (!argsMsg[2]) {
         memset(buffer, 0, LEN_HEADER + LEN_DATA);
         read(thisSocket, buffer, LEN_HEADER + LEN_DATA);
         message = extractSegment(buffer);
-        if (message.clientId == -1) printf("server: %s\n", message.data);
-        else printf("%d: %s\n", message.clientId, message.data);
+        strcpy(userName, nicknames[message.clientId % MAX_USERS_NICK]);
+        if (message.clientId == -1)
+            printf("server: %s\n", message.data);
+        else if (strstr(message.data, "/nickname"))
+            strcpy(nicknames[message.clientId % MAX_USERS_NICK], message.data + 10);
+        else
+            printf("%s: %s\n", userName, message.data);
     }
 
-    // fecha o socket
+    // fecha o socket e a thread
     close(thisSocket);
+    pthread_join(threads, NULL);
     return 0;
 }
