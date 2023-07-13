@@ -49,7 +49,7 @@ void* sendMessage(void *args) {
         }
 
         // executa o comando de saída
-        if (!strcmp(message.data, "quit")) {
+        if (!strcmp(message.data, "/quit")) {
             ((int *)args)[2] = 1; // informa que o socket foi fechado
             break;
         }
@@ -74,7 +74,7 @@ int main() {
     segment_t message;
     while (1) {
         fgets(message.data, sizeof(message.data), stdin);
-        if (!strcmp(message.data, "connect\n"))
+        if (!strcmp(message.data, "/connect\n"))
             break;
 
         printf("Conete-se ao servidor antes.\n");
@@ -114,7 +114,8 @@ int main() {
         memset(buffer, 0, LEN_HEADER + LEN_DATA);
         read(thisSocket, buffer, LEN_HEADER + LEN_DATA);
         message = extractSegment(buffer);
-        printf("Resposta do servidor: %s\n", message.data);
+        if (message.clientId == -1) printf("server: %s\n", message.data);
+        else printf("%d: %s\n", message.clientId, message.data);
     }
 
     // fecha o socket

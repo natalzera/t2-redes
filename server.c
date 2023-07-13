@@ -9,13 +9,15 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <pthread.h>
+#include "list.h"
 
 // bibliotecas para a estrutura dos segmentos
 #include "segment.h"
 
 // informações sobre a conexão
 #define PORT 12600
-#define MAX_CONNECTIONS 2
+#define MAX_CONNECTIONS 5
+list_t *allSockets;
 
 // trata a transição de dados que ocorre em uma comunicação cliente-servidor
 void* connection(void *args) {
@@ -31,32 +33,40 @@ void* connection(void *args) {
         segment_t message = extractSegment(buffer);
 
         // se solicita fechar conexão
-        if (!strcmp(message.data, "quit")) { // fechar conexão
+        if (!strcmp(message.data, "/quit")) { // fechar conexão
             printf("Conexão encerrada com cliente %d\n", message.clientId);
             strcpy(message.data, "disconnected");
             composeSegment(buffer, 0, 0, -1, message.data);
             write(clientSocket, buffer, sizeof(buffer));
             break;
         }
-        // se solicita alguma resposta do servidor
-        else {
-            if (!strcmp(message.data, "connect")) { // iniciar conexão (mandando o id do cliente)
-                composeSegment(buffer, 0, 0, idClient, message.data);
-            }
-            else if (!strcmp(message.data, "ping")) { // responder o ping
-                strcpy(message.data, "pong");
-                composeSegment(buffer, 0, 0, -1, message.data);
-            }
-            else { // responde a mensagem lida
-                printf("%d: %s\n", message.clientId, message.data);
-                composeSegment(buffer, 0, 0, -1, message.data);
-            }
-            
+        // se solicita iniciar conexão (mandando o id do cliente)
+        else if (!strcmp(message.data, "/connect")) {
+            composeSegment(buffer, 0, 0, idClient, message.data);
             write(clientSocket, buffer, sizeof(buffer));
+        }
+        // responder o ping
+        else if (!strcmp(message.data, "/ping")) {
+            printf("ping de %d\n", message.clientId);
+            strcpy(message.data, "pong");
+            composeSegment(buffer, 0, 0, -1, message.data);
+            write(clientSocket, buffer, sizeof(buffer));
+        }
+        // enviar mensagem a todos
+        else {
+            printf("%d: %s\n", message.clientId, message.data);
+            convertSegment(buffer, message);
+
+            no_t *aux = allSockets->begin;
+            while (aux != NULL) {
+                write(aux->content, buffer, sizeof(buffer));
+                aux = aux->next;
+            }
         }
     }
 
     // encerra a conexão
+    pop(allSockets, clientSocket);
     close(clientSocket);
 }
 
@@ -88,8 +98,9 @@ int main() {
     pthread_t threads[MAX_CONNECTIONS];
     int threadCount = 0, clientId = 0;
     struct sockaddr_in clientAddr;
+    allSockets = create();
 
-    while (1) {
+    do {
         // estabelece uma nova conexão
         int clientLen = sizeof(clientAddr);
         int clientSocket = accept(thisSocket, (struct sockaddr *) &clientAddr, &clientLen);
@@ -98,7 +109,8 @@ int main() {
             return 1;
         }
         printf("Conexão estabelecida com cliente %d.\n", clientId);
-    
+        push(allSockets, clientSocket);
+
         // cria uma nova thread para gerenciar conexão
         int argsConnection[2] = {
             clientSocket,
@@ -115,9 +127,10 @@ int main() {
             pthread_join(threads[threadCount - MAX_CONNECTIONS], NULL);
             threadCount --;
         }
-    }
+    } while (allSockets->size > 0);
 
     // encerra o socket do servidor
     close(thisSocket);
+    destroy(allSockets);
     return 0;
 }
