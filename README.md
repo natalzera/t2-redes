@@ -12,5 +12,6 @@
 7. Após um cliente solicitar a mudança de nome de usuário ao servidor (com o comando /nickname _nome_), ele informa todos os outros clientes desta mudança para todos atualizarem suas tabelas de nomes;
 
 ### oq falta
-1. Implementar confirmação SYN ACK do TCP (garantir que todos clientes receberam a mensagem enviada pelo servidor)
-2. Implementar um jeito do servidor se desconectar também (pra não causar leaks de memória)
+1. Implementar a estrutura de dados dos canais
+2. Permitir a transição de usuários entre canais e a comunicação deles
+3. Definir um adm (primeiro usuário do canal) 

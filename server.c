@@ -9,7 +9,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <pthread.h>
-#include "list.h"
+#include "channel.h"
 
 // bibliotecas para a estrutura dos segmentos
 #include "segment.h"
@@ -21,13 +21,20 @@ extern char nicknames[MAX_USERS_NICK][30];
 #define MAX_REPLY 5
 #define MAX_CONNECTIONS 5
 list_t *allSockets;
+channels_t *channels;
 
 // envia a mensagem desejada para todos os clientes conectados
-void sendAll(char *buffer) {
+void sendAll(char *buffer, char *channelName) {
     int bytesWritten, numReply;
     no_t *aux = allSockets->begin;
 
     while (aux != NULL) {
+        // verifica se o socket está no canal de envio da mensagem
+        if (channelName != NULL && findC(channels, channelName, aux->content) != 1) {
+            aux = aux->next;
+            continue;
+        }
+
         // tenta enviar para cada usuário 5 vezes a mensagem caso ela não seja enviada
         numReply = 0;
         do {
@@ -37,7 +44,7 @@ void sendAll(char *buffer) {
         
         // se não conseguiu mandar a mensagem nas tentativas, encerra a conexão
         if (bytesWritten <= 0) {
-            printf("A mensagem não pôde ser enviada para o socket %d.\n", aux->content);
+            printf("A mensagem não pôde ser enviada para o socket %d\n", aux->content);
             pop(allSockets, aux->content);
             close(aux->content);
         }
@@ -53,7 +60,7 @@ void* connection(void *args) {
     int clientSocket = ((int *)args)[0];
     short int idClient = ((int *)args)[1];
 
-    char userName[30];
+    char userName[30], channelName[30], channelNameAux[30];
     while (1) {
         // limpa o buffer e faz a leitura da mensagem
         memset(buffer, 0, LEN_HEADER + LEN_DATA);
@@ -91,7 +98,7 @@ void* connection(void *args) {
             strcpy(message.data, "not closed");
             composeSegment(buffer, -1, message.data);
             write(clientSocket, buffer, LEN_HEADER + LEN_DATA);
-            printf("Conexão encerrada com o último usuário (tentou fechar o servidor).\n");
+            printf("Conexão encerrada com o último usuário (tentou fechar o servidor)\n");
             break;
         }
         // responder o ping
@@ -105,13 +112,70 @@ void* connection(void *args) {
         else if (strstr(message.data, "/nickname")) {
             strcpy(nicknames[message.clientId % MAX_USERS_NICK], message.data + 10);
             printf("Usuário %d mudou seu nick para %s\n", message.clientId, message.data + 10);
-            sendAll(buffer);
+            sendAll(buffer, NULL);
+
+            // avisa o usuário a mudança
+            strcpy(message.data, "Nickname alterado para ");
+            strcat(message.data, nicknames[message.clientId % MAX_USERS_NICK]);
+            composeSegment(buffer, -1, message.data);
+            write(clientSocket, buffer, LEN_HEADER + LEN_DATA);
         }
-        // enviar mensagem a todos
+        // entrar em um canal
+        else if (strstr(message.data, "/join")) {
+            strcpy(channelName, message.data + 6);
+            if (getChannel(channels, channelNameAux, clientSocket) == 1) {
+                join(channels, channelName, clientSocket);
+                printf("%s entrou no canal %s\n", userName, channelName);
+                
+                // avisa os usuários do novo canal
+                strcpy(message.data, userName);
+                strcat(message.data, " entrou no canal ");
+                strcat(message.data, channelName);
+                composeSegment(buffer, -1, message.data);
+                sendAll(buffer, channelName);
+            }
+            // se já estava em um canal, então transfere pra outro
+            else if (!transfer(channels, channelName, channelNameAux, clientSocket)) {
+                printf("%s saiu do canal %s e entrou no %s\n", userName, channelNameAux, channelName);
+                
+                // avisa os usuários do novo canal
+                strcpy(message.data, userName);
+                strcat(message.data, " entrou no canal ");
+                strcat(message.data, channelName);
+                composeSegment(buffer, -1, message.data);
+                sendAll(buffer, channelName);
+
+                // avisa os usuários do antigo canal
+                strcpy(message.data, userName);
+                strcat(message.data, " saiu do canal");
+                composeSegment(buffer, -1, message.data);
+                sendAll(buffer, channelNameAux);
+            }
+            // se não foi possível entrar ou transferir
+            else {
+                strcpy(message.data, "Não é possível sair do canal ");
+                strcat(message.data, channelNameAux);
+                composeSegment(buffer, -1, message.data);
+                write(clientSocket, buffer, LEN_HEADER + LEN_DATA);
+            }
+        }
+        // enviar mensagem a todos do canal
         else {
-            printf("%s: %s\n", userName, message.data);
-            sendAll(buffer);
-        }
+            // se não está em nenhum canal, envia a todos usuários conectados
+            if (getChannel(channels, channelName, clientSocket) == 1) {
+                printf("%s: %s\n", userName, message.data);
+                sendAll(buffer, NULL);
+            }
+            // se está no canal, mas está mutado
+            else if (isMutted(channels, channelName, clientSocket) == 1) {
+                printf("[%s] (mutted)%s: %s\n", channelName, userName, message.data);
+            }
+            // se está no canal e desmutado, envia a todos do canal
+            else {
+                printf("[%s] %s: %s\n", channelName, userName, message.data);
+                sendAll(buffer, channelName);
+            }
+        }   
     }
 
     // encerra a conexão
@@ -126,7 +190,7 @@ int main() {
     // cria e configura o socket
     int thisSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (thisSocket < 0) {
-        printf("Erro ao abrir o socket.\n");
+        printf("Erro ao abrir o socket\n");
         return 1;
     }
 
@@ -138,7 +202,7 @@ int main() {
 
     // associa o socket com o endereço do servidor
     if (bind(thisSocket, (struct sockaddr *) &thisAddr, sizeof(thisAddr)) < 0) {
-        printf("Erro ao fazer o bind.\n");
+        printf("Erro ao fazer o bind\n");
         return 1;
     }
 
@@ -146,18 +210,19 @@ int main() {
     listen(thisSocket, MAX_CONNECTIONS);
     printf("Aguardando conexões...\n");
 
-    // gerencia novas conexões com clientes utilizando threads
+    // gerencia novas conexões e canais com clientes utilizando threads
     pthread_t threads[MAX_CONNECTIONS];
     int threadCount = 0, clientId = 0;
     struct sockaddr_in clientAddr;
     allSockets = create();
+    channels = initChannels();
     
     do {
         // estabelece uma nova conexão
         int clientLen = sizeof(clientAddr);
         int clientSocket = accept(thisSocket, (struct sockaddr *) &clientAddr, &clientLen);
         if (clientSocket < 0) {
-            printf("Erro ao aceitar a conexão.\n");
+            printf("Erro ao aceitar a conexão\n");
             return 1;
         }
         // se o servidor estava vazio
@@ -166,7 +231,7 @@ int main() {
             close(clientSocket);
             break;
         }
-        printf("Conexão estabelecida com usuário %d.\n", clientId);
+        printf("Conexão estabelecida com usuário %d\n", clientId);
         push(allSockets, clientSocket);
 
         // cria uma nova thread para gerenciar conexão
@@ -175,7 +240,7 @@ int main() {
             clientId
         };
         if (pthread_create(&threads[threadCount], NULL, connection, argsConnection)) {
-            printf("Erro ao criar a thread.\n");
+            printf("Erro ao criar a thread\n");
             return 1;
         }
         clientId ++;
@@ -190,7 +255,9 @@ int main() {
     // encerra o socket do servidor e suas threads utilizadas
     close(thisSocket);
     destroy(allSockets);
+    destroyChannels(channels);
     for (int i = 0; i < threadCount; i ++)
         pthread_join(threads[i], NULL);
+
     return 0;
 }
