@@ -23,6 +23,24 @@ extern char nicknames[MAX_USERS_NICK][30];
 list_t *allSockets;
 channels_t *channels;
 
+/**
+ * @brief Checks if the socket is the admin of the channel
+ * 
+ * @param clientSocket the socket in question
+ * @param channelNameAux the name of the channel in question
+ * @return the number of the channel found or -1 if it`s not the admin
+ */
+int checkAdm(int clientSocket, char *channelNameAux){
+
+    int admFound = 0, channelNum = 0; // ainda não tenho ctz se é
+    for (int i = 0; i < MAX_CHANNELS; i++){
+        if (strcmp(channels->channels[i].name, channelNameAux) == 0 && clientSocket == channels->channels[i].userAdm){
+            return i;
+        }                          
+    }
+    return -1;
+}
+
 // envia a mensagem desejada para todos os clientes conectados
 void sendAll(char *buffer, char *channelName) {
     int bytesWritten, numReply;
@@ -159,6 +177,103 @@ void* connection(void *args) {
                 write(clientSocket, buffer, LEN_HEADER + LEN_DATA);
             }
         }
+        else if (strstr(message.data, "/kick")){
+            // verificar se quem mandou esse comando é o adm do canal
+            if(getChannel(channels, channelNameAux, clientSocket) == 1){
+                strcpy(message.data, "Não é possível fazer isso, não achei o canal");
+                strcat(message.data, channelNameAux);
+                composeSegment(buffer, -1, message.data);
+                write(clientSocket, buffer, LEN_HEADER + LEN_DATA); 
+            }
+
+            int admFound = checkAdm(clientSocket, channelNameAux);
+
+            if(admFound == -1){
+                strcpy(message.data, "Não é possível fazer isso, não és admin");
+                strcat(message.data, channelNameAux);
+                composeSegment(buffer, -1, message.data);
+                write(clientSocket, buffer, LEN_HEADER + LEN_DATA); 
+            }
+            else {
+                printf("Admin: socket %i, username %s \n", clientSocket, userName);
+                // achar o socket do user mandado
+                int kickedSocket = -1;
+                for (int i = 0; i < MAX_USERS_NICK; i++)
+                    if(strcmp(nicknames[i], message.data) == 0)
+                        kickedSocket = idsSockets[i];
+                
+                if(quit(channels, channelNameAux, kickedSocket) == 1){
+                    strcpy(message.data, "Não é possível quitar o socket (admin?)");
+                    strcat(message.data, channelNameAux);
+                    composeSegment(buffer, -1, message.data);
+                    write(clientSocket, buffer, LEN_HEADER + LEN_DATA); 
+                }
+                else
+                    printf("%s (%i) kickado.\n", message.data, kickedSocket);
+            }
+        }
+        else if (strstr(message.data, "/mute")){
+
+            if(getChannel(channels, channelNameAux, clientSocket) == 1){
+                strcpy(message.data, "Não é possível fazer isso, não achei o canal");
+                strcat(message.data, channelNameAux);
+                composeSegment(buffer, -1, message.data);
+                write(clientSocket, buffer, LEN_HEADER + LEN_DATA); 
+            }
+            int admFound = checkAdm(clientSocket, channelNameAux);
+            if(admFound == -1){
+                strcpy(message.data, "Não é possível fazer isso, não és admin");
+                strcat(message.data, channelNameAux);
+                composeSegment(buffer, -1, message.data);
+                write(clientSocket, buffer, LEN_HEADER + LEN_DATA); 
+            }
+
+            int mutedSocket = -1;
+            for (int i = 0; i < MAX_USERS_NICK; i++)
+                    if(strcmp(nicknames[i], message.data) == 0)
+                        mutedSocket = idsSockets[i];
+
+            if (isMutted(channels, channelNameAux, mutedSocket) == 0)
+                mute(channels, channelNameAux, mutedSocket);
+            else {
+                strcpy(message.data, "Não é possível fazer isso, usuário já mutado");
+                strcat(message.data, channelNameAux);
+                composeSegment(buffer, -1, message.data);
+                write(clientSocket, buffer, LEN_HEADER + LEN_DATA); 
+            }
+            
+        }
+        else if (strstr(message.data, "/unmute")){
+
+            if(getChannel(channels, channelNameAux, clientSocket) == 1){
+                strcpy(message.data, "Não é possível fazer isso, não achei o canal");
+                strcat(message.data, channelNameAux);
+                composeSegment(buffer, -1, message.data);
+                write(clientSocket, buffer, LEN_HEADER + LEN_DATA); 
+            }
+            int admFound = checkAdm(clientSocket, channelNameAux);
+            if(admFound == -1){
+                strcpy(message.data, "Não é possível fazer isso, não és admin");
+                strcat(message.data, channelNameAux);
+                composeSegment(buffer, -1, message.data);
+                write(clientSocket, buffer, LEN_HEADER + LEN_DATA); 
+            }
+
+            int mutedSocket = -1;
+            for (int i = 0; i < MAX_USERS_NICK; i++)
+                    if(strcmp(nicknames[i], message.data) == 0)
+                        mutedSocket = idsSockets[i];
+
+            if (isMutted(channels, channelNameAux, mutedSocket) == 1)
+                unmute(channels, channelNameAux, mutedSocket);
+            else {
+                strcpy(message.data, "Não é possível fazer isso, usuário não está mutado");
+                strcat(message.data, channelNameAux);
+                composeSegment(buffer, -1, message.data);
+                write(clientSocket, buffer, LEN_HEADER + LEN_DATA); 
+            }
+            
+        }
         // enviar mensagem a todos do canal
         else {
             // se não está em nenhum canal, envia a todos usuários conectados
@@ -235,6 +350,8 @@ int main() {
         push(allSockets, clientSocket);
 
         // cria uma nova thread para gerenciar conexão
+        idsSockets[clientId % MAX_USERS_NICK] = clientSocket;
+
         int argsConnection[2] = {
             clientSocket,
             clientId
