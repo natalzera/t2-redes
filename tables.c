@@ -1,4 +1,4 @@
-#include "nick.h"
+#include "tables.h"
 #include <stdio.h>
 #include <string.h>
 

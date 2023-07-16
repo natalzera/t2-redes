@@ -39,6 +39,23 @@ int getChannel(channels_t *c, char *channelName, int socket) {
     return 1; // se não está em nenhum canal
 }
 
+/**
+ * @brief Checks if the socket is the admin of the channel
+ * 
+ * @param clientSocket the socket in question
+ * @param channelNameAux the name of the channel in question
+ * @return the number of the channel found or -1 if it`s not the admin
+ */
+int checkAdm(int clientSocket, char *channelNameAux) {
+
+    int admFound = 0, channelNum = 0;
+    for (int i = 0; i < MAX_CHANNELS; i++)
+        if (strcmp(channels->channels[i].name, channelNameAux) == 0 && clientSocket == channels->channels[i].userAdm)
+            return i;
+
+    return -1;
+}
+
 // verifica se o socket está no canal
 int findC(channels_t *c, char *channelName, int socket) {
     

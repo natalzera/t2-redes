@@ -17,6 +17,7 @@ typedef struct all_channels {
 channels_t* initChannels();
 int createChannel(channels_t *c, char *channelName, int socketAdm);
 int getChannel(channels_t *c, char *channelName, int socket);
+int checkAdm(int clientSocket, char *channelNameAux);
 int findC(channels_t *c, char *channelName, int socket);
 int join(channels_t *c, char *channelName, int socket);
 int quit(channels_t *c, char *channelName, int socket);

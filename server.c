@@ -13,7 +13,7 @@
 
 // bibliotecas para a estrutura dos segmentos
 #include "segment.h"
-#include "nick.h"
+#include "tables.h"
 extern char nicknames[MAX_USERS_NICK][30];
 
 // informações sobre a conexão
@@ -22,24 +22,6 @@ extern char nicknames[MAX_USERS_NICK][30];
 #define MAX_CONNECTIONS 5
 list_t *allSockets;
 channels_t *channels;
-
-/**
- * @brief Checks if the socket is the admin of the channel
- * 
- * @param clientSocket the socket in question
- * @param channelNameAux the name of the channel in question
- * @return the number of the channel found or -1 if it`s not the admin
- */
-int checkAdm(int clientSocket, char *channelNameAux){
-
-    int admFound = 0, channelNum = 0; // ainda não tenho ctz se é
-    for (int i = 0; i < MAX_CHANNELS; i++){
-        if (strcmp(channels->channels[i].name, channelNameAux) == 0 && clientSocket == channels->channels[i].userAdm){
-            return i;
-        }                          
-    }
-    return -1;
-}
 
 // envia a mensagem desejada para todos os clientes conectados
 void sendAll(char *buffer, char *channelName) {
