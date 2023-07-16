@@ -46,11 +46,11 @@ int getChannel(channels_t *c, char *channelName, int socket) {
  * @param channelNameAux the name of the channel in question
  * @return the number of the channel found or -1 if it`s not the admin
  */
-int checkAdm(int clientSocket, char *channelNameAux) {
+int checkAdm(channels_t *c, int clientSocket, char *channelNameAux) {
 
     int admFound = 0, channelNum = 0;
     for (int i = 0; i < MAX_CHANNELS; i++)
-        if (strcmp(channels->channels[i].name, channelNameAux) == 0 && clientSocket == channels->channels[i].userAdm)
+        if (strcmp(c->channels[i].name, channelNameAux) == 0 && clientSocket == c->channels[i].userAdm)
             return i;
 
     return -1;

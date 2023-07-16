@@ -12,7 +12,7 @@
 
 // bibliotecas para a estrutura dos segmentos
 #include "segment.h"
-#include "nick.h"
+#include "tables.h"
 extern char nicknames[MAX_USERS_NICK][30];
 #define MAX_CHARS 64000
 

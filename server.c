@@ -170,7 +170,7 @@ void* connection(void *args) {
                 write(clientSocket, buffer, LEN_HEADER + LEN_DATA); 
             }
 
-            int admFound = checkAdm(clientSocket, channelNameAux);
+            int admFound = checkAdm(channels, clientSocket, channelNameAux);
 
             if(admFound == -1){
                 strcpy(message.data, "Não é possível fazer isso, não és admin");
@@ -206,7 +206,7 @@ void* connection(void *args) {
                 composeSegment(buffer, -1, message.data);
                 write(clientSocket, buffer, LEN_HEADER + LEN_DATA); 
             }
-            int admFound = checkAdm(clientSocket, channelNameAux);
+            int admFound = checkAdm(channels, clientSocket, channelNameAux);
             if(admFound == -1){
                 strcpy(message.data, "Não é possível fazer isso, não és admin");
                 strcat(message.data, channelNameAux);
@@ -242,7 +242,7 @@ void* connection(void *args) {
                 composeSegment(buffer, -1, message.data);
                 write(clientSocket, buffer, LEN_HEADER + LEN_DATA); 
             }
-            int admFound = checkAdm(clientSocket, channelNameAux);
+            int admFound = checkAdm(channels, clientSocket, channelNameAux);
             if(admFound == -1){
                 strcpy(message.data, "Não é possível fazer isso, não és admin");
                 strcat(message.data, channelNameAux);
