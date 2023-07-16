@@ -22,10 +22,21 @@ $make rc   # para executar o cliente
 6. O servidor e os clientes possuem uma tabela de nomes que mapeiam cada id de cliente para um nome de usuário específico para identificá-los;
 7. Após um cliente solicitar a mudança de nome de usuário ao servidor (com o comando /nickname _nome_), ele informa todos os outros clientes desta mudança para todos atualizarem suas tabelas de nomes;
 
-### Link de explicação do projeto
+Os clientes também podem se conversar usando canais:
+8. Para criar/entrar em um canal, precisa-se usar o comando /join _canal_
+    8.1 O primeiro que entrar no canal vira o adminstrador
+    8.2 As mensagens mandadas no chat do canal são apenas visíveis aos que estão nele, já as mensagens de cliente fora de qualquer canal é disponível a todos.
+    8.3 Para mudar de canal, usa-se o comando /join _canal_ também (isso com o canal já criado).
 
+O adminstrador tem comandos exclusivos:
+9. Ele pode usar o comando /kick _nomeUsuario_ para retirar um usuário do canal.
+10. Ele pode usar o comando /mute _nomeUsuario_ para proibir um usuário de falar.
+11. Ele pode usar o comando /unmute _nomeUsuario_ para retirar a proibição acima.
+
+### Link de execução do projeto
+https://drive.google.com/drive/folders/1f3j1juO_vfaJpHPIOdYMudd0fbOqkHUc?usp=sharing
 
 ### Integrantes do grupo
-Davi Fagundes Ferreira da Silva
-Gabriel Natal Coutinho
-Théo Bruno Frey Riffel
+Davi Fagundes Ferreira da Silva <br>
+Gabriel Natal Coutinho <br>
+Théo Bruno Frey Riffel <br>
