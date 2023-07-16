@@ -252,7 +252,7 @@ void* connection(void *args) {
         }
         else if (strstr(message.data, "/unmute")){
             char nick[LEN_DATA];
-            strcpy(nick, message.data + 6);
+            strcpy(nick, message.data + 8);
 
             if(getChannel(channels, channelNameAux, clientSocket) == 1){
                 strcpy(message.data, "Não é possível fazer isso, não achei o canal");
@@ -270,8 +270,9 @@ void* connection(void *args) {
 
             int mutedSocket = -1;
             for (int i = 0; i < MAX_USERS_NICK; i++)
-                    if(strcmp(nicknames[i], nick) == 0)
+                    if(strcmp(nicknames[i], nick) == 0){
                         mutedSocket = idsSockets[i];
+                    }
 
             if (isMutted(channels, channelNameAux, mutedSocket) == 1){
                 unmute(channels, channelNameAux, mutedSocket);
