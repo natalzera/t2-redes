@@ -79,7 +79,7 @@ int quit(channels_t *c, char *channelName, int socket) {
         }
     }
 
-    return 1; // se o canal não existe
+    return -1; // se o canal não existe
 }
 
 // transfere o socket de um canal para outro
@@ -102,7 +102,7 @@ int mute(channels_t *c, char *channelName, int socket) {
         }
     }
 
-    return 1; // se o canal não existe
+    return -1; // se o canal não existe
 }
 
 // desmuta o usuário do canal
@@ -118,7 +118,7 @@ int unmute(channels_t *c, char *channelName, int socket) {
         }
     }
 
-    return 1; // se o canal não existe
+    return -1; // se o canal não existe
 }
 
 // verifica se o usuário está mutado no canal

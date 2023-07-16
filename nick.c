@@ -11,3 +11,5 @@ void setUsersNickDefault() {
         strcpy(nicknames[i], nickAux);
     }
 }
+
+int idsSockets[MAX_USERS_NICK];
